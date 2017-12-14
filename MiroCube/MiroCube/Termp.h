@@ -4,6 +4,7 @@
 #include <iostream>
 #include<cstring>
 #include<fstream>
+#include <windows.h> // 비트맵 파일 관련 자료 저장
 
 using namespace std;
 #define PI 3.141592/180
