@@ -1,6 +1,10 @@
 ﻿  main.cpp
-c:\users\aldal\desktop\mirocube\mirocube\main.cpp(77): warning C4838: 'double'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
-c:\users\aldal\desktop\mirocube\mirocube\main.cpp(114): warning C4838: 'double'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
-c:\users\aldal\desktop\mirocube\mirocube\main.cpp(480): warning C4101: 'display' :참조되지 않은 지역 변수입니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(96): warning C4838: 'double'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(134): warning C4838: 'double'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(137): warning C4838: 'int'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(172): warning C4838: 'double'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(203): warning C4838: 'double'에서 'GLfloat'(으)로의 변환에는 축소 변환이 필요합니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(825): warning C4101: 'display' :참조되지 않은 지역 변수입니다.
+c:\users\aldal\desktop\mirocube\mirocube\main.cpp(823): warning C4101: 'camera' :참조되지 않은 지역 변수입니다.
   MiroCube.vcxproj -> C:\Users\aldal\Desktop\MiroCube\Debug\MiroCube.exe
   MiroCube.vcxproj -> C:\Users\aldal\Desktop\MiroCube\Debug\MiroCube.pdb (Partial PDB)

@@ -35,6 +35,8 @@ def draw(frame_time):
     image.draw(400,300)
     update_canvas()
 
+
+
 def update(frame_time):
     pass
 

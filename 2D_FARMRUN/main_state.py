@@ -82,6 +82,7 @@ def handle_events(frame_time):
             mario.state = 'RUN'
 
         if mario.hp < 0:
+            score.rank1 = score.min
             game_framework.push_state(end_state)
 
 

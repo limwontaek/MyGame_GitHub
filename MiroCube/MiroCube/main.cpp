@@ -3,6 +3,9 @@
 #include "Termp.h"
 #define CUBE_SIZE 10
 
+
+enum { TOP, RIGHT, BOTTOM, LEFT };
+
 GLvoid drawScene(GLvoid);
 GLvoid Reshape(int w, int h);
 void TimerFunction(int value);
@@ -19,12 +22,14 @@ struct Camera_Utility  {
 	//camera
 	Point camera_rotate;
 	int view_point;
+	int minimap_point;
 
 	//Rotate camera Mouse
 	Point view_vertex;
 	GLfloat view_x;
 	GLfloat view_y;
 	GLfloat view_z;
+
 };
 Camera_Utility cu;
 struct Background_Utility {
@@ -47,12 +52,26 @@ struct Display_Utility {
 	Point light_vertex;
 };
 Display_Utility du;
+struct Ghost_Utillity {
+	Point ghost_vertex;
+
+	int xLoc, yLoc;
+	int dir = 0;
+	bool canContinue = false;
+
+	GLfloat level_speed = 5;			// level 변경시 +0.5 ,-0.5
+	bool collide_button;
+};
+Ghost_Utillity gu;
 
 int Board[MIRO_SIZE][MIRO_SIZE];
 GLubyte* LoadDIBitmap(const char *filename, BITMAPINFO **info);
 
 GLubyte* bitmap;
 BITMAPINFO* bitmapInfo; // 비트맵 헤더 저장할 변수 
+
+int frame_time=0;
+int total_frame = 10;
 
 class Camera {
 public:
@@ -94,6 +113,76 @@ public:
 
 		glEnable(GL_LIGHT0);
 
+
+		glMaterialfv(GL_FRONT, GL_AMBIENT, AmbientLight);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, DiffuseLight);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, SpecularLight);
+		glMateriali(GL_FRONT, GL_SHININESS, 64);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, SpecularLight);
+		glMateriali(GL_FRONT, GL_SHININESS, 128);
+	}
+
+	void ghost_display()
+	{
+		glEnable(GL_LIGHTING);
+
+		//material
+		glEnable(GL_COLOR_MATERIAL);
+		glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+		GLfloat AmbientLight[] = { 0, 0, 0, 0.0f };
+		GLfloat DiffuseLight[] = { 0.6, 0.6, 0.6, 0.0f };
+		GLfloat SpecularLight[] = { 0.5, 0.5, 0.5, 0.0f };
+		//glTranslatef(27 * 25 + bu.ball_vertex.x, 0, 29 * 25 + bu.ball_vertex.z);
+		GLfloat lightPos[] = { gu.xLoc*5 , 50, gu.yLoc*5, 1.0f };
+		//GLfloat lightPos[] = { 100 , 100, 0, 1.0f };
+
+		GLfloat direction[] = { 0,-1,0 };
+		GLfloat angle[] = { 90.0 };
+		GLfloat exponent[] = { 100 };
+
+		glLightfv(GL_LIGHT3, GL_AMBIENT, AmbientLight);
+		glLightfv(GL_LIGHT3, GL_DIFFUSE, DiffuseLight);
+		glLightfv(GL_LIGHT3, GL_SPECULAR, SpecularLight);
+		glLightfv(GL_LIGHT3, GL_POSITION, lightPos);
+		glLightfv(GL_LIGHT3, GL_SPOT_DIRECTION, direction);
+		glLightfv(GL_LIGHT3, GL_SPOT_CUTOFF, angle);
+		glLightfv(GL_LIGHT3, GL_SPOT_EXPONENT, exponent);
+
+		glEnable(GL_LIGHT3);
+
+
+		glMaterialfv(GL_FRONT, GL_AMBIENT, AmbientLight);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, DiffuseLight);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, SpecularLight);
+		glMateriali(GL_FRONT, GL_SHININESS, 64);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, SpecularLight);
+		glMateriali(GL_FRONT, GL_SHININESS, 128);
+	}
+
+	void minimap_display()
+	{
+		glEnable(GL_LIGHTING);
+
+		//material
+		glEnable(GL_COLOR_MATERIAL);
+		glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+		GLfloat AmbientLight[] = { 0, 0, 0, 0.0f };
+		GLfloat DiffuseLight[] = { 0.6, 0.6, 0.6, 0.0f };
+		GLfloat SpecularLight[] = { 0.5, 0.5, 0.5, 0.0f };
+		GLfloat lightPos[] = { 1067 , 500, 80, 1.0f };
+		//gluLookAt(67 + 1000, 200, 80, 67 + 1000, 0, 29 * 5 / 2, 0, 1, 0);
+
+		glLightfv(GL_LIGHT4, GL_AMBIENT, AmbientLight);
+		glLightfv(GL_LIGHT4, GL_DIFFUSE, DiffuseLight);
+		glLightfv(GL_LIGHT4, GL_SPECULAR, SpecularLight);
+		glLightfv(GL_LIGHT4, GL_POSITION, lightPos);
+
+		if(cu.minimap_point == 1)
+			glEnable(GL_LIGHT4);
+		if (cu.minimap_point == 0)
+			glDisable(GL_LIGHT4);
 
 		glMaterialfv(GL_FRONT, GL_AMBIENT, AmbientLight);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, DiffuseLight);
@@ -304,9 +393,186 @@ public:
 	}
 
 };
-class Ghost {
+class Ghost{
 public:
+	void init()
+	{
+		for (int i = 0; i < MIRO_SIZE; ++i)
+		{
+			for (int j = 0; j < MIRO_SIZE; ++j)
+			{
+				if (Board[i][j] == 3) //현재의 좌표값 구하기
+				{
+					Board[i][j] = 0;
+					gu.xLoc = j;
+					gu.yLoc = i;
+					dirCal();
+					return;
+				}
+			}
+		}
+	}
 
+	void navigate()
+	{
+		if (gu.dir == TOP)
+		{
+			if (Board[gu.yLoc - 1][gu.xLoc] == 1)
+				gu.canContinue = false;
+			else
+			{
+				Board[gu.yLoc][gu.xLoc] = 0;
+				--gu.yLoc;
+				Board[gu.yLoc][gu.xLoc] = 3;
+			}
+		}
+		else if (gu.dir == BOTTOM)
+		{
+			if (Board[gu.yLoc + 1][gu.xLoc] == 1)
+				gu.canContinue = false;
+			else
+			{
+				Board[gu.yLoc][gu.xLoc] = 0;
+				++gu.yLoc;
+				Board[gu.yLoc][gu.xLoc] = 3;
+			}
+
+		}
+		else if (gu.dir == LEFT)
+		{
+			if (Board[gu.yLoc][gu.xLoc - 1] == 1)
+				gu.canContinue = false;
+			else
+			{
+				Board[gu.yLoc][gu.xLoc] = 0;
+				--gu.xLoc;
+				Board[gu.yLoc][gu.xLoc] = 3;
+			}
+		}
+		else if (gu.dir == RIGHT)
+		{
+			if (Board[gu.yLoc][gu.xLoc + 1] == 1)
+				gu.canContinue = false;
+			else
+			{
+				Board[gu.yLoc][gu.xLoc] = 0;
+				++gu.xLoc;
+				Board[gu.yLoc][gu.xLoc] = 3;
+			}
+		}
+	}
+
+	void dirCal()   //방향계산
+	{
+		while (1)
+		{
+			gu.dir = rand() % 4;   // set direction
+
+			if (gu.dir == TOP)
+			{
+				if (Board[gu.yLoc - 1][gu.xLoc] == 0) { gu.canContinue = true; return; } // 가려는 방향의 다음 칸이 벽인지 확인 후 갈 수 있으면 true  찾을 수 없으면 while문 안에서 찾을 때까지 반복
+			}
+			if (gu.dir == BOTTOM)
+			{
+				if (Board[gu.yLoc + 1][gu.xLoc] == 0) { gu.canContinue = true; return; }
+			}
+			if (gu.dir == LEFT)
+			{
+				if (Board[gu.yLoc][gu.xLoc - 1] == 0) { gu.canContinue = true; return; }
+			}
+			if (gu.dir == RIGHT)
+			{
+				if (Board[gu.yLoc][gu.xLoc + 1] == 0) { gu.canContinue = true; return; }
+			}
+		}
+	}
+
+	void draw_ghost()
+	{
+		glPushMatrix(); {
+			glTranslatef(gu.xLoc * 5, 1, gu.yLoc * 5);
+			glColor3f(1, 0, 0);
+			glutSolidSphere(1,15,15);
+		}glPopMatrix();
+	}
+
+	void printAll()
+	{
+		for (int i = 0; i < MIRO_SIZE; ++i)
+		{
+			for (int j = 0; j < MIRO_SIZE; ++j)
+			{
+				cout << Board[i][j] << " ";
+			}
+			cout << endl;
+		}
+	}
+};
+class Minimap {
+public:
+	void draw_MiniMap()
+	{
+		//0:빈 곳 1:벽 2:아이템 or 몬스터 3:시작 4:도착지점
+		for (int j = 0; j < MIRO_SIZE; ++j) {
+			for (int i = 0; i < MIRO_SIZE; ++i) {
+				if (Board[j][i] == 1)
+				{
+					glPushMatrix(); {
+						glColor3f(0.3, 0.2, 0);
+						glScalef(1, 0.1, 1);
+						glTranslatef(i * 5, 5, j * 5);
+						glutSolidCube(5);
+					}glPopMatrix();
+				}
+				if (Board[j][i] == 2)
+				{
+					glPushMatrix(); {
+						glColor3f(0, 1, 0);
+						glScalef(1, 0.1, 1);
+						glTranslatef(i * 5, 5, j * 5);
+						glutSolidCube(5);
+					}glPopMatrix();
+				}
+				if (Board[j][i] == 3)
+				{
+					glPushMatrix(); {
+						glColor3f(1, 0, 0);
+						glScalef(1, 0.1, 1);
+						glTranslatef(i * 5, 5, j * 5);
+						glutSolidCube(5);
+					}glPopMatrix();
+				}
+				if (Board[j][i] == 4)
+				{
+					glPushMatrix(); {
+						glColor3f(0, 0, 1);
+						glScalef(1, 0.1, 1);
+						glTranslatef(i * 5, 5, j * 5);
+						glutSolidCube(5);
+					}glPopMatrix();
+				}
+			}
+		}
+
+		//minimap ball draw
+		glPushMatrix(); {
+			glColor3f(1, 1, 0);
+			glScalef(1, 0.1, 1);
+			glTranslatef(bu.ball_vertex.x, 5, bu.ball_vertex.z);
+			glutSolidCube(5);
+		}glPopMatrix();
+	}
+};
+class State {
+public:
+	void draw_Intro()
+	{
+
+	}
+	void draw_End()
+	{
+
+	}
 };
 class Robot {
 
@@ -318,10 +584,10 @@ public:
 	void Init()
 	{
 		bu.ball_vertex.x = 27 * 5;
-		bu.ball_vertex.z = 29 * 5;
+		bu.ball_vertex.z = 28 * 5;
 
 		cu.view_vertex.x = 27 * 5;
-		cu.view_vertex.z = 29 * 5;
+		cu.view_vertex.z = 28 * 5;
 	}
 	void draw_ball()
 	{
@@ -335,10 +601,11 @@ public:
 	}
 	void timer()
 	{
+		// wall collide
 		// w
 		if (bu.ball_trans_button[0] == true)
 		{
-			if (bu.collide_button == true) {
+			if (bu.collide_button == true ) {
 				bu.collide_button = false;
 				bu.ball_trans_button[0] = false;
 				bu.ball_vertex.z += 1;
@@ -381,22 +648,76 @@ public:
 				bu.ball_trans_button[3] = false;
 			}
 		}
+
+		// ghost collide
+		// w
+		if (bu.ball_trans_button[0] == true)
+		{
+			if (gu.collide_button == true) {
+				gu.collide_button = false;
+				bu.ball_trans_button[0] = false;
+				//bu.ball_vertex.z += 1; 종료화면으로
+				bu.ball_vertex.z += 1;
+			}
+
+		}
+		// s
+		if (bu.ball_trans_button[1] == true)
+		{
+			if (gu.collide_button == true) {
+				bu.ball_vertex.z -= 1;
+				gu.collide_button = false;
+				bu.ball_trans_button[1] = false;
+			}
+		}
+		// a
+		if (bu.ball_trans_button[2] == true)
+		{
+			if (gu.collide_button == true) {
+				bu.ball_vertex.x += 1;
+				gu.collide_button = false;
+				bu.ball_trans_button[2] = false;
+			}
+		}
+		// d
+		if (bu.ball_trans_button[3] == true)
+		{
+			if (gu.collide_button == true) {
+				bu.ball_vertex.x -= 1;
+				gu.collide_button = false;
+				bu.ball_trans_button[3] = false;
+			}
+		}
 	}
+	void collide_box()
+	{
+
+		if (((gu.xLoc*5 - bu.ball_vertex.x)*(gu.xLoc*5 - bu.ball_vertex.x)) + ((gu.yLoc*5 - bu.ball_vertex.z)*(gu.yLoc*5 - bu.ball_vertex.z)) <= 2) // 1은 공의 반지름
+			gu.collide_button = true;
+	}
+
 };
 class Update {
 private:
 	MIRO miro;
 	Ball ball;
 	Display display;
+	Ghost ghost;
+	Minimap minimap;
 public:
 	void draw_map()
 	{
 		miro.Init();
-		display.ball_display();
-		//display.clear_display();		//도착시 조명
-		miro.collide_box();
 
-		//0:빈 곳 1:벽 2:아이템 or 몬스터 3:시작 4:도착지점
+		display.ball_display();
+		display.ghost_display();
+		//display.clear_display();		//도착시 조명
+		display.minimap_display();
+
+		miro.collide_box();
+		ball.collide_box();
+
+		//0:빈 곳 1:벽 2:아이템 2:시작 3:귀신1 5:귀신2 4:도착지점
 		for (int j = 0; j < MIRO_SIZE; ++j) {
 			for (int i = 0; i < MIRO_SIZE; ++i) {
 				if (Board[j][i] == 1)
@@ -412,12 +733,12 @@ public:
 						miro.draw_Miro();
 					}glPopMatrix();
 				}
-				if (Board[j][i] == 3)
+				if (Board[j][i] == 2)
 				{
 					glPushMatrix(); {
 						glColor3f(0, 1, 0);
 						glScalef(1,0.1,1);
-						glTranslatef(27 * 5, 0, 29 * 5);
+						glTranslatef(27 * 5, 0, 28 * 5);
 						glutSolidCube(3);
 					}glPopMatrix();
 				}
@@ -435,6 +756,28 @@ public:
 		}
 		ball.draw_ball();
 
+	}
+	void update_ghost()
+	{
+		// 귀신1
+		glPushMatrix(); {
+
+			if (frame_time >= total_frame) {
+				ghost.navigate();
+				if (gu.canContinue == false)
+					ghost.dirCal();
+				total_frame += gu.level_speed;
+			}
+
+			ghost.draw_ghost();
+		}glPopMatrix();
+	}
+	void update_minimap()
+	{
+		glPushMatrix(); {
+			glTranslatef(1000, 5, 0);
+			minimap.draw_MiniMap();
+		}glPopMatrix();
 	}
 };
 void main()
@@ -467,10 +810,12 @@ void InitSetUp()
 {
 	MIRO miro;
 	Ball ball;
+	Ghost ghost;
 	// camera
 
 	miro.load_Miro();
 	ball.Init();
+	ghost.init();
 }
 
 GLvoid drawScene()
@@ -478,6 +823,8 @@ GLvoid drawScene()
 	Camera camera;
 	Update update;
 	Display display;
+
+	
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -486,7 +833,7 @@ GLvoid drawScene()
 	glLoadIdentity();
 
 	//camera rotate
-	camera.camera_rotate(); 
+	//camera.camera_rotate(); 
 
 	//display
 	glEnable(GL_DEPTH_TEST);
@@ -494,20 +841,29 @@ GLvoid drawScene()
 	glEnable(GL_NORMALIZE);
 
 	glPushMatrix(); {
-		//Q: 반바퀴밖에 돌아가지않음
-		if (cu.view_point == 1) {
-			gluLookAt(0, 0, 0, 0, -0.5, 1, 0, 1, 0);
-			glTranslatef(0.0, -300.0, 0.0);
+		//Minimap
+		if (cu.minimap_point == 1) {
+			gluLookAt(67+1000, 200, 80 ,67+1000, 0, 29*5/2, 0, 1, 0);
+			update.update_minimap();
 		}
-		if(cu.view_point == 0)
-			gluLookAt(bu.ball_vertex.x, 30, bu.ball_vertex.z+15, cu.view_vertex.x, cu.view_vertex.y/2, bu.ball_vertex.z/2, 0, 1, 0);
+		//Intro, End
+		//else if () {
+
+		//}
+		else {
+			if (cu.view_point == 1)
+				gluLookAt(bu.ball_vertex.x, 100, bu.ball_vertex.z + 15, cu.view_vertex.x, cu.view_vertex.y / 2, bu.ball_vertex.z / 2, 0, 1, 0);
+			if (cu.view_point == 0)
+				gluLookAt(bu.ball_vertex.x, 40, bu.ball_vertex.z + 10, cu.view_vertex.x, cu.view_vertex.y / 2, bu.ball_vertex.z / 2, 0, 1, 0);
+		}
 		glPushMatrix(); {
-			update.draw_map();
+			update.draw_map();	
+			update.update_ghost();
+
+			cout << cu.minimap_point << endl;
 		}glPopMatrix();
 	}glPopMatrix();
 
-
-	cout << bu.collide_button << endl;
 
 	glutSwapBuffers();
 }
@@ -534,6 +890,8 @@ void TimerFunction(int value)
 	Ball ball;
 	//timer_Setup
 	ball.timer();
+
+	frame_time += 1;
 
 	glutPostRedisplay();
 	glutTimerFunc(100, TimerFunction, 1);
@@ -581,7 +939,16 @@ void Keyboard(unsigned char key, int x, int y)
 		if (cu.view_point == 2)
 			cu.view_point = 0;
 	}
-
+	else if (key == 'm' || key == 'M')
+	{
+		cu.minimap_point += 1;
+		if (cu.minimap_point == 2)
+			cu.minimap_point = 0;
+	}
+	else if (key == 'q' || 'Q')
+	{
+		exit(1);
+	}
 }
 void getSpecialKeyboard(int key, int x, int y)
 {
